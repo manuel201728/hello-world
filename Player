@@ -1,0 +1,47 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class Player : MonoBehaviour {
+
+	private Health health;
+	[SerializeField] private Animator deathAnimator;
+
+	[HideInInspector] public bool isDead = false;
+
+	void Start ()
+	{
+        Transform inGameUITransform = GameObject.Find("/Canvas/InGame").transform;
+        deathAnimator = inGameUITransform.Find("Death").GetComponent<Animator>();
+
+        health = GetComponent<Health> ();
+	}
+
+	void Update()
+	{
+		CheckHealth ();
+	}
+
+	void CheckHealth()
+	{
+		if (isDead) return;
+
+		if (health.value <= 0)
+		{
+			isDead = true;
+
+			deathAnimator.SetTrigger ("Show");
+            GameManager.instance.GameOver();
+
+            Invoke("RestartGame", 5);
+		}
+	}
+
+    void RestartGame()
+    {
+        deathAnimator.SetTrigger("Reset");
+        GameManager.instance.ResetGame();
+        Destroy(gameObject);
+    }
+}
