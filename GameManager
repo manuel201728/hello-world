@@ -1,0 +1,136 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public enum GameState
+{
+    Ready,
+    Playing,
+    GameOver
+}
+
+public class GameManager : MonoBehaviour
+{
+    public static GameManager instance;
+
+    [HideInInspector] public GameState gameState = GameState.Ready;
+    public ViewBase startView;
+    public GameObject playerPrefab;
+    public Transform playerSpawnPoint;
+
+    public Transform[] enemySpawnPoints;
+
+    public EnemySpawner enemySpawner;
+
+    public float spawnDuration = 5f;
+    public int maxZombies = 20;
+    public float upgradeDuration = 20f;
+    public int zombieSpawned = 0;
+    public int baseZombieHP = 100;
+    public int baseKillReward = 10;
+    public float baseZombieSpeed = 1.0f;
+    public float maxZombieSpeed = 5.0f;
+
+    [SerializeField] private int zombieHP;
+    [SerializeField] private float zombieSpeed;
+    [SerializeField] private int killReward;
+
+    private IEnumerator coSpawnEnemies;
+    private IEnumerator coEnhanceZombieStatus;
+
+    void Awake()
+    {
+        instance = this;
+    }
+
+    public void StartGame()
+    {
+        zombieHP = baseZombieHP;
+        zombieSpeed = baseZombieSpeed;
+        killReward = baseKillReward;
+
+        Instantiate(playerPrefab, playerSpawnPoint.position, playerSpawnPoint.rotation);
+
+        coSpawnEnemies = CoSpawnEnemies();
+        coEnhanceZombieStatus = CoEnhanceZombieStatus();
+
+        StartCoroutine(coSpawnEnemies);
+        StartCoroutine(coEnhanceZombieStatus);
+
+        gameState = GameState.Playing;
+    }
+
+    public void GameOver()
+    {
+        StopCoroutine(coSpawnEnemies);
+        StopCoroutine(coEnhanceZombieStatus);
+
+        gameState = GameState.GameOver;
+    }
+
+    public void ResetGame()
+    {
+        Enemy[] zombies = GameObject.FindObjectsOfType<Enemy>();
+
+        for(int i = 0; i < zombies.Length; i++)
+        {
+            Destroy(zombies[i].gameObject);
+        }
+
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+
+        gameState = GameState.Ready;
+        startView.Show();
+    }
+
+    IEnumerator CoSpawnEnemies()
+    {
+        yield return new WaitForSeconds(5);
+
+        while (true)
+        {
+            for (int i = 0; i < enemySpawnPoints.Length; i++)
+            {
+                if (zombieSpawned >= maxZombies) continue;
+
+                GameObject enemyObj = enemySpawner.SpawnAt(enemySpawnPoints[i].position, enemySpawnPoints[i].rotation);
+                Enemy enemy = enemyObj.GetComponent<Enemy>();
+                Health enemyHealth = enemyObj.GetComponent<Health>();
+                KillReward enemyKillReward = enemyObj.GetComponent<KillReward>();
+
+                enemy.speed = zombieSpeed;
+                enemyHealth.value = zombieHP;
+                enemyKillReward.amount = killReward;
+
+                enemy.onDead.AddListener(() =>
+                {
+                    zombieSpawned--;
+                });
+
+                zombieSpawned++;
+            }
+
+            yield return new WaitForSeconds(spawnDuration);
+        }
+    }
+
+    IEnumerator CoEnhanceZombieStatus()
+    {
+        yield return new WaitForSeconds(5);
+
+        while (true)
+        {
+            yield return new WaitForSeconds(upgradeDuration);
+
+            zombieHP += 20;
+            zombieSpeed += 0.25f;
+            killReward++;
+
+            if (zombieSpeed > maxZombieSpeed)
+            {
+                zombieSpeed = maxZombieSpeed;
+            }
+        }
+    }
+}
